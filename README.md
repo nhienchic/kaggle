@@ -23,6 +23,8 @@ This project turns the competition brief and repository state into an actionable
 - Produces a readiness score and submission checklist.
 - Maps current evidence and missing assets.
 - Scans for likely committed secrets, risky environment files, and unsafe read-boundary attempts without exposing full secret values.
+- Preserves deterministic fallback when no `GOOGLE_API_KEY` is configured.
+- Supports a model-backed runtime adapter path when `GOOGLE_API_KEY` is configured.
 - Generates draft README, Kaggle Writeup, and five-minute video script content.
 - Exports the full readiness report as Markdown.
 
@@ -34,6 +36,7 @@ The core analysis workflow is separate from Streamlit:
 app.py
   -> build_default_report()
   -> kaggle_capstone_coach.workflow.run_readiness_workflow()
+  -> optional model adapter gated by GOOGLE_API_KEY
   -> kaggle_capstone_coach.mcp_tools.LocalMcpToolLayer
   -> ReadinessReport.to_markdown()
 ```
@@ -97,9 +100,17 @@ The current tool layer exposes:
 
 ## Configuration
 
-The current slice uses deterministic fallback behavior only, so no API key is required.
+No API key is required for the default local demo. When `GOOGLE_API_KEY` is absent, the workflow uses deterministic fallback mode.
 
-Future Gemini / Google ADK integration should use environment variables such as `GOOGLE_API_KEY`. Do not commit API keys, passwords, tokens, or private credentials to this repository.
+The workflow also supports a model-backed adapter path gated by `GOOGLE_API_KEY`. Tests use a fake model adapter to verify configured and missing-key behavior without making live model calls.
+
+Set the environment variable only in your local shell or deployment environment:
+
+```powershell
+$env:GOOGLE_API_KEY = "your-local-key"
+```
+
+Do not commit API keys, passwords, tokens, or private credentials to this repository.
 
 ## Testing
 
@@ -119,9 +130,10 @@ This keeps tests focused on observable behavior: checklist status, report struct
 Next evidence to add:
 
 1. Deployability documentation and deployment option notes.
-2. Kaggle Writeup draft refined into final submission form.
-3. Media gallery cover image and demo screenshots.
-4. YouTube demo script and final video.
+2. Live Gemini / Google ADK adapter implementation if needed beyond the tested runtime seam.
+3. Kaggle Writeup draft refined into final submission form.
+4. Media gallery cover image and demo screenshots.
+5. YouTube demo script and final video.
 
 ## Status
 

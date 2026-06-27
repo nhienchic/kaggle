@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
+from typing import Mapping
 
 from .mcp_tools import LocalMcpToolLayer
 from .security import SecurityFinding, SecuritySummary
@@ -154,8 +156,14 @@ class RepoSnapshot:
         )
 
 
-def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> ReadinessReport:
+def run_readiness_workflow(
+    requirement_text: str,
+    repo_root: Path | str,
+    environment: Mapping[str, str] | None = None,
+    model_adapter: object | None = None,
+) -> ReadinessReport:
     root = Path(repo_root)
+    env = os.environ if environment is None else environment
     tools = LocalMcpToolLayer(root)
     snapshot = _snapshot_from_tool_output(
         root,
@@ -178,7 +186,9 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
     )
     next_steps = tuple(item.next_step for item in checklist if item.status != "present")[:5]
 
-    agent_summaries = (
+    model_mode = "model-backed" if env.get("GOOGLE_API_KEY") and model_adapter else "deterministic"
+
+    deterministic_summaries = (
         AgentSummary(
             "Requirement Analyst",
             "Extract hard submission assets and judging criteria from the brief.",
@@ -200,10 +210,22 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
             "Prepared README, Kaggle Writeup, and five-minute video script drafts from deterministic fallback content.",
         ),
     )
+    agent_summaries = deterministic_summaries
+    if model_mode == "model-backed":
+        agent_summaries = _agent_summaries_from_adapter(
+            model_adapter,
+            {
+                "requirement_text": requirement_text,
+                "repo_files": snapshot.files,
+                "checklist": checklist,
+                "security_summary": security_summary,
+                "deterministic_summaries": deterministic_summaries,
+            },
+        )
 
     return ReadinessReport(
         title="Kaggle Capstone Submission Coach Readiness Report",
-        model_mode="deterministic",
+        model_mode=model_mode,
         readiness_score=score,
         agent_summaries=agent_summaries,
         checklist=checklist,
@@ -213,6 +235,26 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
         readme_draft=_readme_draft(checklist),
         writeup_draft=_writeup_draft(),
         video_script=_video_script(),
+    )
+
+
+def _agent_summaries_from_adapter(
+    model_adapter: object | None,
+    context: dict[str, object],
+) -> tuple[AgentSummary, ...]:
+    if model_adapter is None or not hasattr(model_adapter, "build_agent_summaries"):
+        raise ValueError("Model-backed mode requires an adapter with build_agent_summaries().")
+
+    raw_summaries = model_adapter.build_agent_summaries(context)  # type: ignore[attr-defined]
+    return tuple(
+        summary
+        if isinstance(summary, AgentSummary)
+        else AgentSummary(
+            name=str(summary["name"]),
+            responsibility=str(summary["responsibility"]),
+            finding=str(summary["finding"]),
+        )
+        for summary in raw_summaries
     )
 
 
@@ -266,7 +308,9 @@ def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:
         "the competition brief and current repository.\n\n"
         "## Architecture\n\n"
         "The workflow uses four specialist agents: Requirement Analyst, Repo Auditor, "
-        "Submission Strategist, and Communication Coach.\n\n"
+        "Submission Strategist, and Communication Coach. It preserves the same report "
+        "contract for deterministic fallback and model-backed execution gated by "
+        "`GOOGLE_API_KEY`.\n\n"
         "## MCP Evidence\n\n"
         "The project includes a local MCP-compatible tool layer for reading the "
         "competition brief, scanning repository files, producing checklist data, "
@@ -292,11 +336,13 @@ def _writeup_draft() -> str:
         "## Solution\n\n"
         "This project uses a multi-agent readiness workflow to inspect the brief and "
         "repository, then produce a checklist, evidence map, prioritized next steps, "
-        "and submission artifact drafts.\n\n"
+        "and submission artifact drafts. The default path is deterministic, while a "
+        "model-backed adapter path is available when `GOOGLE_API_KEY` is configured.\n\n"
         "## Agent Architecture\n\n"
         "Requirement Analyst extracts the submission rules, Repo Auditor maps project "
         "evidence, Submission Strategist prioritizes gaps, and Communication Coach "
-        "drafts judge-facing material.\n\n"
+        "drafts judge-facing material. The orchestrator reports whether it used "
+        "deterministic fallback or model-backed execution.\n\n"
         "## Course Concept Evidence\n\n"
         "- Multi-agent system: implemented by the deterministic readiness workflow.\n"
         "- MCP: local MCP-compatible tools expose requirement reading, repository scanning, checklist data, and security signals.\n"
@@ -314,10 +360,12 @@ def _video_script() -> str:
         "current repository.\n"
         "3. Multi-agent architecture: explain the Requirement Analyst, Repo Auditor, "
         "Submission Strategist, and Communication Coach.\n"
-        "4. MCP evidence: show the local MCP-compatible tools for requirement "
+        "4. Runtime mode: show whether the app used deterministic fallback or the "
+        "model-backed adapter gated by `GOOGLE_API_KEY`.\n"
+        "5. MCP evidence: show the local MCP-compatible tools for requirement "
         "reading, repo scanning, checklist data, and security signals.\n"
-        "5. Security evidence: show likely-secret scanning, risky env-file warnings, "
+        "6. Security evidence: show likely-secret scanning, risky env-file warnings, "
         "redacted findings, and safe read boundaries.\n"
-        "6. Deployability evidence: show local run instructions and the planned public "
+        "7. Deployability evidence: show local run instructions and the planned public "
         "deployment path."
     )

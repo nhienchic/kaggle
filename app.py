@@ -1,14 +1,24 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Mapping
 
 from kaggle_capstone_coach.workflow import ReadinessReport, run_readiness_workflow
 
 
-def build_default_report(repo_root: Path | str | None = None) -> ReadinessReport:
+def build_default_report(
+    repo_root: Path | str | None = None,
+    environment: Mapping[str, str] | None = None,
+    model_adapter: object | None = None,
+) -> ReadinessReport:
     root = Path(repo_root) if repo_root is not None else Path(__file__).parent
     requirement_text = (root / "requirement.md").read_text(encoding="utf-8")
-    return run_readiness_workflow(requirement_text, root)
+    return run_readiness_workflow(
+        requirement_text,
+        root,
+        environment=environment,
+        model_adapter=model_adapter,
+    )
 
 
 def main() -> None:

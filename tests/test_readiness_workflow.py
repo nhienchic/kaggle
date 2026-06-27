@@ -6,6 +6,68 @@ from kaggle_capstone_coach.workflow import run_readiness_workflow
 
 
 class ReadinessWorkflowTests(unittest.TestCase):
+    def test_missing_google_api_key_uses_deterministic_fallback(self):
+        class FakeModelAdapter:
+            def build_agent_summaries(self, context):
+                raise AssertionError("adapter should not be called without GOOGLE_API_KEY")
+
+        repo_root = Path(__file__).resolve().parents[1]
+        requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
+
+        report = run_readiness_workflow(
+            requirement_text,
+            repo_root,
+            environment={},
+            model_adapter=FakeModelAdapter(),
+        )
+
+        self.assertEqual(report.model_mode, "deterministic")
+
+    def test_configured_google_api_key_uses_model_adapter(self):
+        class FakeModelAdapter:
+            def __init__(self):
+                self.context = None
+
+            def build_agent_summaries(self, context):
+                self.context = context
+                return [
+                    {
+                        "name": "Requirement Analyst",
+                        "responsibility": "Model-backed requirement analysis.",
+                        "finding": "Fake Gemini analysis referenced the Kaggle Writeup requirement.",
+                    },
+                    {
+                        "name": "Repo Auditor",
+                        "responsibility": "Model-backed repo audit.",
+                        "finding": "Fake Gemini audit inspected repository evidence.",
+                    },
+                    {
+                        "name": "Submission Strategist",
+                        "responsibility": "Model-backed submission planning.",
+                        "finding": "Fake Gemini strategy prioritized missing media assets.",
+                    },
+                    {
+                        "name": "Communication Coach",
+                        "responsibility": "Model-backed communication drafting.",
+                        "finding": "Fake Gemini coach drafted judge-facing language.",
+                    },
+                ]
+
+        repo_root = Path(__file__).resolve().parents[1]
+        requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
+        adapter = FakeModelAdapter()
+
+        report = run_readiness_workflow(
+            requirement_text,
+            repo_root,
+            environment={"GOOGLE_API_KEY": "configured"},
+            model_adapter=adapter,
+        )
+
+        self.assertEqual(report.model_mode, "model-backed")
+        self.assertIsNotNone(adapter.context)
+        self.assertIn("Fake Gemini analysis", report.agent_summaries[0].finding)
+
     def test_minimal_repo_produces_submission_readiness_report(self):
         repo_root = Path(__file__).resolve().parents[1]
         requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
@@ -45,6 +107,23 @@ class ReadinessWorkflowTests(unittest.TestCase):
         checklist = {item.label: item.status for item in report.checklist}
         self.assertEqual(report.model_mode, "deterministic")
         self.assertEqual(checklist["Competition brief"], "present")
+
+    def test_app_entrypoint_can_report_model_backed_mode(self):
+        from app import build_default_report
+
+        class FakeModelAdapter:
+            def build_agent_summaries(self, context):
+                return context["deterministic_summaries"]
+
+        repo_root = Path(__file__).resolve().parents[1]
+
+        report = build_default_report(
+            repo_root,
+            environment={"GOOGLE_API_KEY": "configured"},
+            model_adapter=FakeModelAdapter(),
+        )
+
+        self.assertEqual(report.model_mode, "model-backed")
 
     def test_report_exposes_downloadable_submission_artifacts(self):
         repo_root = Path(__file__).resolve().parents[1]
