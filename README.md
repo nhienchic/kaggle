@@ -19,6 +19,7 @@ This project turns the competition brief and repository state into an actionable
   - Repo Auditor
   - Submission Strategist
   - Communication Coach
+- Exposes MCP-compatible local tools for requirement reading, repository scanning, readiness checklist generation, and security signal checks.
 - Produces a readiness score and submission checklist.
 - Maps current evidence and missing assets.
 - Scans for likely committed secrets, risky environment files, and unsafe read-boundary attempts without exposing full secret values.
@@ -33,10 +34,11 @@ The core analysis workflow is separate from Streamlit:
 app.py
   -> build_default_report()
   -> kaggle_capstone_coach.workflow.run_readiness_workflow()
+  -> kaggle_capstone_coach.mcp_tools.LocalMcpToolLayer
   -> ReadinessReport.to_markdown()
 ```
 
-`app.py` is a thin UI adapter. The workflow module owns repository scanning, deterministic agent findings, checklist generation, scoring, gap analysis, and Markdown export. Tests exercise the workflow interface rather than Streamlit internals.
+`app.py` is a thin UI adapter. The workflow module owns deterministic agent findings, scoring, gap analysis, and Markdown export. Repository scanning, checklist data, and security checks are routed through `LocalMcpToolLayer` so the same analysis capabilities are available as MCP-compatible tools. Tests exercise the workflow and tool interfaces rather than Streamlit internals.
 
 ## Setup
 
@@ -66,6 +68,33 @@ Then open:
 http://localhost:8501
 ```
 
+## MCP-Compatible Tools
+
+Inspect available local tools:
+
+```powershell
+python -m kaggle_capstone_coach.mcp_tools list --repo-root .
+```
+
+Run a tool:
+
+```powershell
+python -m kaggle_capstone_coach.mcp_tools run scan_repository_files --repo-root .
+```
+
+Run the checklist tool with requirement text:
+
+```powershell
+python -m kaggle_capstone_coach.mcp_tools run produce_readiness_checklist --repo-root . --requirement-text "Submission Requirements"
+```
+
+The current tool layer exposes:
+
+- `read_competition_requirements`
+- `scan_repository_files`
+- `produce_readiness_checklist`
+- `check_security_signals`
+
 ## Configuration
 
 The current slice uses deterministic fallback behavior only, so no API key is required.
@@ -89,11 +118,10 @@ This keeps tests focused on observable behavior: checklist status, report struct
 
 Next evidence to add:
 
-1. MCP-compatible tool layer for requirement reading and repo scanning.
-2. Deployability documentation and deployment option notes.
-3. Kaggle Writeup draft refined into final submission form.
-4. Media gallery cover image and demo screenshots.
-5. YouTube demo script and final video.
+1. Deployability documentation and deployment option notes.
+2. Kaggle Writeup draft refined into final submission form.
+3. Media gallery cover image and demo screenshots.
+4. YouTube demo script and final video.
 
 ## Status
 

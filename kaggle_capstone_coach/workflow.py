@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .security import SecuritySummary, scan_repository_security
+from .mcp_tools import LocalMcpToolLayer
+from .security import SecurityFinding, SecuritySummary
 
 
 Status = str
@@ -154,9 +155,21 @@ class RepoSnapshot:
 
 
 def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> ReadinessReport:
-    snapshot = _scan_repository(Path(repo_root))
-    security_summary = scan_repository_security(repo_root)
-    checklist = _build_checklist(requirement_text, snapshot)
+    root = Path(repo_root)
+    tools = LocalMcpToolLayer(root)
+    snapshot = _snapshot_from_tool_output(
+        root,
+        tools.run_tool("scan_repository_files")["output"],
+    )
+    checklist = _checklist_from_tool_output(
+        tools.run_tool(
+            "produce_readiness_checklist",
+            {"requirement_text": requirement_text},
+        )["output"],
+    )
+    security_summary = _security_summary_from_tool_output(
+        tools.run_tool("check_security_signals")["output"],
+    )
     score = _score(checklist)
     gaps = tuple(
         f"{item.label}: {item.next_step}"
@@ -174,7 +187,7 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
         AgentSummary(
             "Repo Auditor",
             "Scan the repository for judge-visible evidence.",
-            f"Scanned {len(snapshot.files)} files and mapped current evidence to the submission checklist. Security status: {security_summary.status}.",
+            f"Scanned {len(snapshot.files)} files through the local MCP-compatible tool layer and mapped current evidence to the submission checklist. Security status: {security_summary.status}.",
         ),
         AgentSummary(
             "Submission Strategist",
@@ -203,126 +216,35 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
     )
 
 
-def _scan_repository(root: Path) -> RepoSnapshot:
-    ignored_dirs = {".git", ".mypy_cache", ".pytest_cache", "__pycache__"}
-    files: list[str] = []
-
-    for path in root.rglob("*"):
-        if not path.is_file():
-            continue
-        relative = path.relative_to(root)
-        parts = relative.parts
-        if any(part in ignored_dirs for part in parts):
-            continue
-        if any(part == "human" or part.startswith("human_") for part in parts):
-            continue
-        files.append(relative.as_posix())
-
-    return RepoSnapshot(root=root, files=tuple(sorted(files)))
+def _snapshot_from_tool_output(root: Path, output: dict[str, object]) -> RepoSnapshot:
+    return RepoSnapshot(root=root, files=tuple(output["files"]))  # type: ignore[arg-type]
 
 
-def _build_checklist(requirement_text: str, snapshot: RepoSnapshot) -> tuple[ChecklistItem, ...]:
-    brief_present = snapshot.has_file("requirement.md") or "Submission Requirements" in requirement_text
-    app_present = snapshot.has_file("app.py")
-    tests_present = any(file_name.startswith("tests/") for file_name in snapshot.files)
-    package_present = any(
-        file_name.startswith("kaggle_capstone_coach/") for file_name in snapshot.files
-    )
-
-    return (
-        _item(
-            "Competition brief",
-            brief_present,
-            ("requirement.md",) if brief_present else (),
-            "Add the competition requirements brief to requirement.md.",
-        ),
-        _item(
-            "Runnable Streamlit app",
-            app_present,
-            ("app.py",) if app_present else (),
-            "Create a Streamlit entrypoint that renders the readiness report.",
-        ),
-        _item(
-            "Deterministic readiness workflow",
-            package_present,
-            ("kaggle_capstone_coach/workflow.py",) if package_present else (),
-            "Add a tested workflow that returns a structured report without live model calls.",
-        ),
-        _item(
-            "Workflow tests",
-            tests_present,
-            ("tests/",) if tests_present else (),
-            "Add tests for the readiness workflow that do not require API keys.",
-        ),
-        _item(
-            "Kaggle Writeup",
-            snapshot.has_any_path_containing("writeup"),
-            _matching(snapshot, "writeup"),
-            "Draft the Kaggle Writeup and attach it to the submission.",
-        ),
-        _item(
-            "Media Gallery",
-            _has_media(snapshot),
-            _media_files(snapshot),
-            "Create a cover image and media assets for the Kaggle Writeup gallery.",
-        ),
-        _item(
-            "YouTube video",
-            snapshot.has_any_path_containing("youtube")
-            or snapshot.has_any_path_containing("video", "script"),
-            _matching(snapshot, "youtube") + _matching(snapshot, "video"),
-            "Record and publish a five-minute or shorter YouTube demo video.",
-        ),
-        _item(
-            "Public project link",
-            snapshot.has_file("README.md"),
-            ("README.md",) if snapshot.has_file("README.md") else (),
-            "Publish a public repo or demo link with setup instructions.",
-        ),
-        _item(
-            "README setup instructions",
-            snapshot.has_file("README.md"),
-            ("README.md",) if snapshot.has_file("README.md") else (),
-            "Add a README with problem, solution, architecture, and local setup steps.",
-        ),
-        _item(
-            "Course concept evidence",
-            package_present,
-            ("kaggle_capstone_coach/workflow.py",) if package_present else (),
-            "Map at least three course concepts to code or video evidence.",
-        ),
-    )
-
-
-def _item(
-    label: str,
-    present: bool,
-    evidence: tuple[str, ...],
-    next_step: str,
-) -> ChecklistItem:
-    return ChecklistItem(
-        label=label,
-        status="present" if present else "missing",
-        evidence=evidence,
-        next_step=next_step,
-    )
-
-
-def _matching(snapshot: RepoSnapshot, term: str) -> tuple[str, ...]:
-    return tuple(file_name for file_name in snapshot.files if term.lower() in file_name.lower())
-
-
-def _has_media(snapshot: RepoSnapshot) -> bool:
-    return bool(_media_files(snapshot))
-
-
-def _media_files(snapshot: RepoSnapshot) -> tuple[str, ...]:
-    extensions = {".png", ".jpg", ".jpeg", ".gif", ".mp4", ".mov", ".webm"}
+def _checklist_from_tool_output(output: dict[str, object]) -> tuple[ChecklistItem, ...]:
+    checklist = output["checklist"]
     return tuple(
-        file_name
-        for file_name in snapshot.files
-        if Path(file_name).suffix.lower() in extensions
+        ChecklistItem(
+            label=str(item["label"]),
+            status=str(item["status"]),
+            evidence=tuple(item["evidence"]),
+            next_step=str(item["next_step"]),
+        )
+        for item in checklist  # type: ignore[union-attr]
     )
+
+
+def _security_summary_from_tool_output(output: dict[str, object]) -> SecuritySummary:
+    findings = tuple(
+        SecurityFinding(
+            status=str(finding["status"]),
+            category=str(finding["category"]),
+            path=str(finding["path"]),
+            message=str(finding["message"]),
+            remediation=str(finding["remediation"]),
+        )
+        for finding in output["findings"]  # type: ignore[union-attr]
+    )
+    return SecuritySummary(status=str(output["status"]), findings=findings)
 
 
 def _score(checklist: tuple[ChecklistItem, ...]) -> int:
@@ -346,8 +268,9 @@ def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:
         "The workflow uses four specialist agents: Requirement Analyst, Repo Auditor, "
         "Submission Strategist, and Communication Coach.\n\n"
         "## MCP Evidence\n\n"
-        "Placeholder: document the MCP-compatible tool layer once the requirement "
-        "reader and repository scanner are exposed as tools.\n\n"
+        "The project includes a local MCP-compatible tool layer for reading the "
+        "competition brief, scanning repository files, producing checklist data, "
+        "and checking security signals.\n\n"
         "## Security Evidence\n\n"
         "The workflow scans repository files for likely committed secrets, risky "
         "environment files, and guarded read-boundary behavior without exposing full "
@@ -376,7 +299,7 @@ def _writeup_draft() -> str:
         "drafts judge-facing material.\n\n"
         "## Course Concept Evidence\n\n"
         "- Multi-agent system: implemented by the deterministic readiness workflow.\n"
-        "- MCP: placeholder for the upcoming MCP-compatible tool layer.\n"
+        "- MCP: local MCP-compatible tools expose requirement reading, repository scanning, checklist data, and security signals.\n"
         "- Security: likely-secret checks, risky env-file warnings, and safe read boundaries.\n"
         "- Deployability: placeholder for local setup and public hosting notes."
     )
@@ -391,8 +314,8 @@ def _video_script() -> str:
         "current repository.\n"
         "3. Multi-agent architecture: explain the Requirement Analyst, Repo Auditor, "
         "Submission Strategist, and Communication Coach.\n"
-        "4. MCP evidence: point to the placeholder for the MCP-compatible tools that "
-        "will expose requirement reading and repo scanning.\n"
+        "4. MCP evidence: show the local MCP-compatible tools for requirement "
+        "reading, repo scanning, checklist data, and security signals.\n"
         "5. Security evidence: show likely-secret scanning, risky env-file warnings, "
         "redacted findings, and safe read boundaries.\n"
         "6. Deployability evidence: show local run instructions and the planned public "
