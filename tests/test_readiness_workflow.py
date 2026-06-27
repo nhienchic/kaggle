@@ -1,4 +1,5 @@
 from pathlib import Path
+import tempfile
 import unittest
 
 from kaggle_capstone_coach.workflow import run_readiness_workflow
@@ -9,7 +10,12 @@ class ReadinessWorkflowTests(unittest.TestCase):
         repo_root = Path(__file__).resolve().parents[1]
         requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
 
-        report = run_readiness_workflow(requirement_text, repo_root)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            minimal_repo = Path(tmp_dir)
+            (minimal_repo / "requirement.md").write_text(requirement_text, encoding="utf-8")
+
+            report = run_readiness_workflow(requirement_text, minimal_repo)
+
         markdown = report.to_markdown()
 
         self.assertEqual(
@@ -39,6 +45,28 @@ class ReadinessWorkflowTests(unittest.TestCase):
         checklist = {item.label: item.status for item in report.checklist}
         self.assertEqual(report.model_mode, "deterministic")
         self.assertEqual(checklist["Competition brief"], "present")
+
+    def test_report_exposes_downloadable_submission_artifacts(self):
+        repo_root = Path(__file__).resolve().parents[1]
+        requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
+
+        report = run_readiness_workflow(requirement_text, repo_root)
+        artifacts = {artifact.filename: artifact.content for artifact in report.artifacts()}
+
+        self.assertEqual(
+            set(artifacts),
+            {
+                "readme-draft.md",
+                "kaggle-writeup-draft.md",
+                "five-minute-video-script.md",
+                "submission-readiness-report.md",
+            },
+        )
+        for content in artifacts.values():
+            self.assertIn("multi-agent", content.lower())
+            self.assertIn("mcp", content.lower())
+            self.assertIn("security", content.lower())
+            self.assertIn("deployability", content.lower())
 
 
 if __name__ == "__main__":

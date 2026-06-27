@@ -25,7 +25,6 @@ def main() -> None:
     )
 
     report = build_default_report()
-    markdown = report.to_markdown()
 
     st.title("Kaggle Capstone Submission Coach")
     st.caption("Deterministic submission readiness report for the current repository.")
@@ -56,24 +55,46 @@ def main() -> None:
         hide_index=True,
     )
 
+    artifacts = {artifact.label: artifact for artifact in report.artifacts()}
     tab_report, tab_readme, tab_writeup, tab_video = st.tabs(
         ["Report", "README Draft", "Writeup Draft", "Video Script"]
     )
     with tab_report:
-        st.markdown(markdown)
+        artifact = artifacts["Full readiness report"]
+        st.markdown(artifact.content)
+        st.download_button(
+            "Download report",
+            data=artifact.content,
+            file_name=artifact.filename,
+            mime="text/markdown",
+        )
     with tab_readme:
-        st.markdown(report.readme_draft)
+        artifact = artifacts["README draft"]
+        st.markdown(artifact.content)
+        st.download_button(
+            "Download README draft",
+            data=artifact.content,
+            file_name=artifact.filename,
+            mime="text/markdown",
+        )
     with tab_writeup:
-        st.markdown(report.writeup_draft)
+        artifact = artifacts["Kaggle Writeup draft"]
+        st.markdown(artifact.content)
+        st.download_button(
+            "Download Kaggle Writeup draft",
+            data=artifact.content,
+            file_name=artifact.filename,
+            mime="text/markdown",
+        )
     with tab_video:
-        st.markdown(report.video_script)
-
-    st.download_button(
-        "Download Markdown report",
-        data=markdown,
-        file_name="submission-readiness-report.md",
-        mime="text/markdown",
-    )
+        artifact = artifacts["Five-minute video script"]
+        st.markdown(artifact.content)
+        st.download_button(
+            "Download video script",
+            data=artifact.content,
+            file_name=artifact.filename,
+            mime="text/markdown",
+        )
 
 
 if __name__ == "__main__":

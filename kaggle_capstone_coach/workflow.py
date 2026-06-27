@@ -23,6 +23,13 @@ class AgentSummary:
 
 
 @dataclass(frozen=True)
+class ReadinessArtifact:
+    label: str
+    filename: str
+    content: str
+
+
+@dataclass(frozen=True)
 class ReadinessReport:
     title: str
     model_mode: str
@@ -34,6 +41,26 @@ class ReadinessReport:
     readme_draft: str
     writeup_draft: str
     video_script: str
+
+    def artifacts(self) -> tuple[ReadinessArtifact, ...]:
+        return (
+            ReadinessArtifact("README draft", "readme-draft.md", self.readme_draft),
+            ReadinessArtifact(
+                "Kaggle Writeup draft",
+                "kaggle-writeup-draft.md",
+                self.writeup_draft,
+            ),
+            ReadinessArtifact(
+                "Five-minute video script",
+                "five-minute-video-script.md",
+                self.video_script,
+            ),
+            ReadinessArtifact(
+                "Full readiness report",
+                "submission-readiness-report.md",
+                self.to_markdown(),
+            ),
+        )
 
     def to_markdown(self) -> str:
         lines = [
@@ -291,28 +318,65 @@ def _score(checklist: tuple[ChecklistItem, ...]) -> int:
 def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:
     missing = ", ".join(item.label for item in checklist if item.status != "present")
     return (
-        "Describe the Kaggle Capstone Submission Coach, its multi-agent readiness "
-        "workflow, how to run the Streamlit app, and the current submission gaps. "
-        f"Priority gaps to document: {missing or 'none'}."
+        "# Kaggle Capstone Submission Coach\n\n"
+        "## Problem\n\n"
+        "Capstone participants need a submission readiness check that turns the "
+        "Kaggle competition brief and repository evidence into a clear build plan.\n\n"
+        "## Solution\n\n"
+        "A Streamlit app runs a deterministic multi-agent readiness workflow over "
+        "the competition brief and current repository.\n\n"
+        "## Architecture\n\n"
+        "The workflow uses four specialist agents: Requirement Analyst, Repo Auditor, "
+        "Submission Strategist, and Communication Coach.\n\n"
+        "## MCP Evidence\n\n"
+        "Placeholder: document the MCP-compatible tool layer once the requirement "
+        "reader and repository scanner are exposed as tools.\n\n"
+        "## Security Evidence\n\n"
+        "Placeholder: document secret scanning and safe repository read boundaries "
+        "after the security slice lands.\n\n"
+        "## Deployability Evidence\n\n"
+        "Placeholder: document local setup and the selected public deployment path.\n\n"
+        "## Current Gaps\n\n"
+        f"{missing or 'No required gaps detected by the deterministic workflow.'}"
     )
 
 
 def _writeup_draft() -> str:
     return (
-        "Title: Kaggle Capstone Submission Coach\n\n"
-        "Problem: capstone participants need a fast way to see whether their project "
-        "has the assets and course-concept evidence required for submission.\n\n"
-        "Solution: a Streamlit app runs specialist agents over the competition brief "
-        "and repository snapshot, then returns a readiness score, evidence map, gap "
-        "analysis, and draft submission artifacts."
+        "# Kaggle Capstone Submission Coach\n\n"
+        "## Problem\n\n"
+        "Kaggle AI Agents capstone submissions need strong communication, working "
+        "code, and visible evidence for course concepts. Missing assets can weaken "
+        "an otherwise useful project.\n\n"
+        "## Solution\n\n"
+        "This project uses a multi-agent readiness workflow to inspect the brief and "
+        "repository, then produce a checklist, evidence map, prioritized next steps, "
+        "and submission artifact drafts.\n\n"
+        "## Agent Architecture\n\n"
+        "Requirement Analyst extracts the submission rules, Repo Auditor maps project "
+        "evidence, Submission Strategist prioritizes gaps, and Communication Coach "
+        "drafts judge-facing material.\n\n"
+        "## Course Concept Evidence\n\n"
+        "- Multi-agent system: implemented by the deterministic readiness workflow.\n"
+        "- MCP: placeholder for the upcoming MCP-compatible tool layer.\n"
+        "- Security: placeholder for likely-secret checks and safe read boundaries.\n"
+        "- Deployability: placeholder for local setup and public hosting notes."
     )
 
 
 def _video_script() -> str:
     return (
-        "1. State the submission-readiness problem.\n"
-        "2. Show the Streamlit report generated from requirement.md and the repo.\n"
-        "3. Explain the four specialist agents and deterministic fallback mode.\n"
-        "4. Walk through missing assets and prioritized next steps.\n"
-        "5. Close with planned MCP, security, and deployability evidence."
+        "# Five-Minute Video Script\n\n"
+        "1. Problem: explain why capstone submission readiness is difficult and why "
+        "the Kaggle brief requires more than a prototype.\n"
+        "2. Demo: show the Streamlit report generated from `requirement.md` and the "
+        "current repository.\n"
+        "3. Multi-agent architecture: explain the Requirement Analyst, Repo Auditor, "
+        "Submission Strategist, and Communication Coach.\n"
+        "4. MCP evidence: point to the placeholder for the MCP-compatible tools that "
+        "will expose requirement reading and repo scanning.\n"
+        "5. Security evidence: explain the planned likely-secret scan and safe read "
+        "boundaries.\n"
+        "6. Deployability evidence: show local run instructions and the planned public "
+        "deployment path."
     )
