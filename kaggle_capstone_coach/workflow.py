@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from .security import SecuritySummary, scan_repository_security
+
 
 Status = str
 
@@ -36,6 +38,7 @@ class ReadinessReport:
     readiness_score: int
     agent_summaries: tuple[AgentSummary, ...]
     checklist: tuple[ChecklistItem, ...]
+    security_summary: SecuritySummary
     gaps: tuple[str, ...]
     next_steps: tuple[str, ...]
     readme_draft: str
@@ -93,6 +96,18 @@ class ReadinessReport:
             evidence = "; ".join(item.evidence) if item.evidence else "No evidence found"
             lines.append(f"- **{item.label}**: {item.status} - {evidence}")
 
+        lines.extend(["", "## Security Summary", ""])
+        lines.append(f"Status: {self.security_summary.status}")
+        if self.security_summary.findings:
+            for finding in self.security_summary.findings:
+                lines.append(
+                    f"- **{finding.category}** ({finding.status}) in "
+                    f"`{finding.path}`: {finding.message} "
+                    f"Remediation: {finding.remediation}"
+                )
+        else:
+            lines.append("- No likely committed secrets or risky environment files found.")
+
         lines.extend(["", "## Gaps", ""])
         for gap in self.gaps:
             lines.append(f"- {gap}")
@@ -140,6 +155,7 @@ class RepoSnapshot:
 
 def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> ReadinessReport:
     snapshot = _scan_repository(Path(repo_root))
+    security_summary = scan_repository_security(repo_root)
     checklist = _build_checklist(requirement_text, snapshot)
     score = _score(checklist)
     gaps = tuple(
@@ -158,7 +174,7 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
         AgentSummary(
             "Repo Auditor",
             "Scan the repository for judge-visible evidence.",
-            f"Scanned {len(snapshot.files)} files and mapped current evidence to the submission checklist.",
+            f"Scanned {len(snapshot.files)} files and mapped current evidence to the submission checklist. Security status: {security_summary.status}.",
         ),
         AgentSummary(
             "Submission Strategist",
@@ -178,6 +194,7 @@ def run_readiness_workflow(requirement_text: str, repo_root: Path | str) -> Read
         readiness_score=score,
         agent_summaries=agent_summaries,
         checklist=checklist,
+        security_summary=security_summary,
         gaps=gaps,
         next_steps=next_steps,
         readme_draft=_readme_draft(checklist),
@@ -332,8 +349,9 @@ def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:
         "Placeholder: document the MCP-compatible tool layer once the requirement "
         "reader and repository scanner are exposed as tools.\n\n"
         "## Security Evidence\n\n"
-        "Placeholder: document secret scanning and safe repository read boundaries "
-        "after the security slice lands.\n\n"
+        "The workflow scans repository files for likely committed secrets, risky "
+        "environment files, and guarded read-boundary behavior without exposing full "
+        "secret values.\n\n"
         "## Deployability Evidence\n\n"
         "Placeholder: document local setup and the selected public deployment path.\n\n"
         "## Current Gaps\n\n"
@@ -359,7 +377,7 @@ def _writeup_draft() -> str:
         "## Course Concept Evidence\n\n"
         "- Multi-agent system: implemented by the deterministic readiness workflow.\n"
         "- MCP: placeholder for the upcoming MCP-compatible tool layer.\n"
-        "- Security: placeholder for likely-secret checks and safe read boundaries.\n"
+        "- Security: likely-secret checks, risky env-file warnings, and safe read boundaries.\n"
         "- Deployability: placeholder for local setup and public hosting notes."
     )
 
@@ -375,8 +393,8 @@ def _video_script() -> str:
         "Submission Strategist, and Communication Coach.\n"
         "4. MCP evidence: point to the placeholder for the MCP-compatible tools that "
         "will expose requirement reading and repo scanning.\n"
-        "5. Security evidence: explain the planned likely-secret scan and safe read "
-        "boundaries.\n"
+        "5. Security evidence: show likely-secret scanning, risky env-file warnings, "
+        "redacted findings, and safe read boundaries.\n"
         "6. Deployability evidence: show local run instructions and the planned public "
         "deployment path."
     )

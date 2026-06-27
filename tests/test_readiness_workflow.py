@@ -68,6 +68,27 @@ class ReadinessWorkflowTests(unittest.TestCase):
             self.assertIn("security", content.lower())
             self.assertIn("deployability", content.lower())
 
+    def test_report_includes_security_summary_and_remediation(self):
+        requirement_text = "Submission Requirements"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "requirement.md").write_text(requirement_text, encoding="utf-8")
+            fake_key = "abcdefghijklmnopqrstuvwxyz" + "123456"
+            (repo_root / "settings.py").write_text(
+                f"GOOGLE_API_KEY='{fake_key}'",
+                encoding="utf-8",
+            )
+
+            report = run_readiness_workflow(requirement_text, repo_root)
+
+        markdown = report.to_markdown()
+
+        self.assertEqual(report.security_summary.status, "fail")
+        self.assertIn("## Security Summary", markdown)
+        self.assertIn("likely-secret", markdown)
+        self.assertIn("rotate it if real", markdown)
+        self.assertNotIn(fake_key, markdown)
+
 
 if __name__ == "__main__":
     unittest.main()

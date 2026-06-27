@@ -55,6 +55,26 @@ def main() -> None:
         hide_index=True,
     )
 
+    st.subheader("Security summary")
+    st.metric("Security status", report.security_summary.status)
+    if report.security_summary.findings:
+        st.dataframe(
+            [
+                {
+                    "Status": finding.status,
+                    "Category": finding.category,
+                    "Path": finding.path,
+                    "Finding": finding.message,
+                    "Remediation": finding.remediation,
+                }
+                for finding in report.security_summary.findings
+            ],
+            use_container_width=True,
+            hide_index=True,
+        )
+    else:
+        st.write("No likely committed secrets or risky environment files found.")
+
     artifacts = {artifact.label: artifact for artifact in report.artifacts()}
     tab_report, tab_readme, tab_writeup, tab_video = st.tabs(
         ["Report", "README Draft", "Writeup Draft", "Video Script"]

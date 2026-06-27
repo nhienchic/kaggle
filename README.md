@@ -21,6 +21,7 @@ This project turns the competition brief and repository state into an actionable
   - Communication Coach
 - Produces a readiness score and submission checklist.
 - Maps current evidence and missing assets.
+- Scans for likely committed secrets, risky environment files, and unsafe read-boundary attempts without exposing full secret values.
 - Generates draft README, Kaggle Writeup, and five-minute video script content.
 - Exports the full readiness report as Markdown.
 
@@ -89,11 +90,10 @@ This keeps tests focused on observable behavior: checklist status, report struct
 Next evidence to add:
 
 1. MCP-compatible tool layer for requirement reading and repo scanning.
-2. Security scan for likely secrets and unsafe credential files.
-3. Deployability documentation and deployment option notes.
-4. Kaggle Writeup draft refined into final submission form.
-5. Media gallery cover image and demo screenshots.
-6. YouTube demo script and final video.
+2. Deployability documentation and deployment option notes.
+3. Kaggle Writeup draft refined into final submission form.
+4. Media gallery cover image and demo screenshots.
+5. YouTube demo script and final video.
 
 ## Status
 
