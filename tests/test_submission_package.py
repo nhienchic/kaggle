@@ -16,6 +16,9 @@ class SubmissionPackageTests(unittest.TestCase):
         video_script = (
             repo_root / "docs" / "submission" / "five-minute-video-script.md"
         ).read_text(encoding="utf-8")
+        youtube_checklist = (
+            repo_root / "docs" / "submission" / "youtube-demo-checklist.md"
+        ).read_text(encoding="utf-8")
         media_dir = repo_root / "docs" / "submission" / "media-gallery"
         media_cover = media_dir / "cover.png"
         screenshot_names = (
@@ -55,6 +58,17 @@ class SubmissionPackageTests(unittest.TestCase):
             "deployability",
         ):
             self.assertIn(expected, combined_submission)
+
+        for expected in (
+            "youtube title",
+            "youtube description",
+            "5 minutes",
+            "python -m streamlit run app.py",
+            "GOOGLE_API_KEY",
+            "media gallery",
+            "public",
+        ):
+            self.assertIn(expected, youtube_checklist)
 
         self.assertTrue(media_cover.exists())
         self.assertGreater(media_cover.stat().st_size, 100_000)
