@@ -1,14 +1,18 @@
 # Kaggle Capstone Submission Coach
 
-Kaggle Capstone Submission Coach is a Streamlit app for checking whether this repository is ready for the Kaggle AI Agents capstone submission. It reads the competition brief in `requirement.md`, scans the current repository, runs a deterministic multi-agent readiness workflow, and produces a structured report with a checklist, readiness score, gaps, next steps, and draft submission artifacts.
+Kaggle Capstone Submission Coach is a Streamlit app for checking whether this repository is ready for the Kaggle AI Agents capstone submission. It reads the competition brief in `requirement.md`, scans the current repository, runs a deterministic multi-agent readiness workflow, and produces a structured report with a checklist, readiness score, judge evidence dashboard, gaps, next steps, and draft submission artifacts.
 
-The app is intentionally analysis-only. It does not edit the repository, create GitHub issues, deploy anything, or require a live model call for the first demo path.
+The app is intentionally analysis-only. It does not edit the repository, create GitHub issues, deploy anything, or require a live model call for the default demo path.
 
 ## Problem
 
 The Kaggle capstone submission requires more than code. A valid submission needs a Kaggle Writeup, media gallery, YouTube video, public project link, setup instructions, and clear evidence for at least three course concepts. The highest risk is missing judge-visible evidence near the deadline.
 
 This project turns the competition brief and repository state into an actionable readiness package.
+
+## Solution
+
+The app gives a capstone team one local command that turns repository evidence into a submission package. It combines deterministic agent roles, MCP-compatible inspection tools, security scanning, optional Gemini-backed summaries, and downloadable draft artifacts into one Streamlit review surface.
 
 ## Current Features
 
@@ -44,14 +48,36 @@ app.py
 
 `app.py` is a thin UI adapter. The workflow module owns deterministic agent findings, scoring, gap analysis, and Markdown export. Repository scanning, checklist data, and security checks are routed through `LocalMcpToolLayer` so the same analysis capabilities are available as MCP-compatible tools. Tests exercise the workflow and tool interfaces rather than Streamlit internals.
 
+The multi-agent workflow uses four specialist roles:
+
+- Requirement Analyst extracts hard submission requirements and scoring criteria.
+- Repo Auditor maps repository evidence to judge-visible assets.
+- Submission Strategist prioritizes the gaps that affect scoring.
+- Communication Coach drafts public-facing submission material.
+
+The project demonstrates an ADK-style multi-agent design with optional Gemini-backed summaries. The default deterministic path remains available so a judge can run the app without a live model call.
+
 ## Setup
 
 Use Python 3.14 or a recent Python 3 version.
+
+Create and activate a virtual environment:
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+```
 
 Install dependencies:
 
 ```powershell
 python -m pip install -r requirements.txt
+```
+
+Optional: configure Gemini-backed summaries by copying `.env.example` to a local `.env` file or by setting variables in your shell or deployment dashboard. Real `.env` files are ignored by git.
+
+```powershell
+$env:GOOGLE_API_KEY = "replace_me"
 ```
 
 Run tests:
@@ -116,6 +142,27 @@ Google AI Studio examples use `GEMINI_API_KEY`; this app accepts either name. If
 
 Do not commit API keys, passwords, tokens, or private credentials to this repository.
 
+## Deployment Option
+
+Streamlit Community Cloud is the simplest deployment path:
+
+1. Push this repository to a public GitHub repository.
+2. Create a Streamlit Community Cloud app from the repository.
+3. Set the main file path to `app.py`.
+4. Let Streamlit install dependencies from `requirements.txt`.
+5. Optionally add `GOOGLE_API_KEY` or `GEMINI_API_KEY` in the Streamlit secrets/settings UI.
+
+The deployed app still works without an API key because deterministic fallback mode is the default. If a live deployment is not available, the public GitHub repository can serve as the project link because this README includes setup, test, local run, MCP, security, Gemini configuration, and deployment guidance.
+
+## Submission Package
+
+Durable draft submission assets live in `docs/submission/`:
+
+- `kaggle-writeup-draft.md`
+- `five-minute-video-script.md`
+
+The running app can also generate downloadable README, writeup, video script, and full report artifacts from the current repository state.
+
 ## Testing
 
 The primary test seam is the readiness workflow:
@@ -133,11 +180,10 @@ This keeps tests focused on observable behavior: checklist status, report struct
 
 Next evidence to add:
 
-1. Deployability documentation and deployment option notes.
-2. Kaggle Writeup draft refined into final submission form.
-3. Media gallery cover image and demo screenshots.
-4. YouTube demo script and final video.
+1. Media gallery cover image and demo screenshots.
+2. Final YouTube recording from `docs/submission/five-minute-video-script.md`.
+3. Optional hosted Streamlit Community Cloud deployment.
 
 ## Status
 
-This repository currently implements the first runnable readiness report slice. It is ready for local review, but not yet a complete Kaggle submission package.
+This repository is packaged to serve as the public project link for the capstone submission if needed. It is ready for local review and has documented next steps for final media and optional hosting.

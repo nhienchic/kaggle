@@ -20,6 +20,9 @@ bash.exe.stackdump
 .idea/
 *.swp
 *.swo
+.env
+.env.*
+!.env.example
 
 # ==========================================
 # 3. Python
