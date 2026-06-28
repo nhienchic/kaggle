@@ -1,5 +1,7 @@
 # Five-Minute Video Script
 
+Before recording, use `youtube-demo-checklist.md` for upload metadata, recording setup, visibility checks, and no-secrets review.
+
 ## 0:00 - 0:30 Problem
 
 This project solves a submission-readiness problem for Kaggle AI Agents capstone participants. A good agent project can still lose judging clarity if the writeup, video, setup instructions, security posture, deployment story, or course concept evidence are missing.

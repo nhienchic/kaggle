@@ -23,6 +23,7 @@ bash.exe.stackdump
 .env
 .env.*
 !.env.example
+.streamlit/secrets.toml
 
 # ==========================================
 # 3. Python

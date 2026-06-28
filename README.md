@@ -160,6 +160,8 @@ Durable draft submission assets live in `docs/submission/`:
 
 - `kaggle-writeup-draft.md`
 - `five-minute-video-script.md`
+- `youtube-demo-checklist.md`
+- `deployment-checklist.md`
 - `media-gallery/cover.png`
 - `media-gallery/streamlit-readiness-overview.png`
 - `media-gallery/judge-evidence-dashboard.png`
@@ -168,6 +170,8 @@ Durable draft submission assets live in `docs/submission/`:
 - `media-gallery/README.md`
 
 The running app can also generate downloadable README, writeup, video script, and full report artifacts from the current repository state.
+
+Deployment details live in `docs/submission/deployment-checklist.md`. The repo includes `.streamlit/config.toml` for headless deployment and `.streamlit/secrets.toml.example` for optional `GOOGLE_API_KEY` / `GEMINI_API_KEY` configuration. Real `.streamlit/secrets.toml` files are ignored by git.
 
 ## Testing
 
@@ -186,9 +190,8 @@ This keeps tests focused on observable behavior: checklist status, report struct
 
 Next evidence to add:
 
-1. Demo screenshots listed in `docs/submission/media-gallery/README.md`.
-2. Final YouTube recording from `docs/submission/five-minute-video-script.md`.
-3. Optional hosted Streamlit Community Cloud deployment.
+1. Final YouTube recording using `docs/submission/five-minute-video-script.md` and `docs/submission/youtube-demo-checklist.md`.
+2. Optional hosted Streamlit Community Cloud deployment using `docs/submission/deployment-checklist.md`.
 
 ## Status
 

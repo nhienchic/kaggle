@@ -19,6 +19,16 @@ class SubmissionPackageTests(unittest.TestCase):
         youtube_checklist = (
             repo_root / "docs" / "submission" / "youtube-demo-checklist.md"
         ).read_text(encoding="utf-8")
+        deployment_checklist = (
+            repo_root / "docs" / "submission" / "deployment-checklist.md"
+        ).read_text(encoding="utf-8")
+        streamlit_config = (
+            repo_root / ".streamlit" / "config.toml"
+        ).read_text(encoding="utf-8")
+        secrets_example = (
+            repo_root / ".streamlit" / "secrets.toml.example"
+        ).read_text(encoding="utf-8")
+        gitignore = (repo_root / ".gitignore").read_text(encoding="utf-8")
         media_dir = repo_root / "docs" / "submission" / "media-gallery"
         media_cover = media_dir / "cover.png"
         screenshot_names = (
@@ -64,11 +74,26 @@ class SubmissionPackageTests(unittest.TestCase):
             "youtube description",
             "5 minutes",
             "python -m streamlit run app.py",
-            "GOOGLE_API_KEY",
             "media gallery",
             "public",
         ):
-            self.assertIn(expected, youtube_checklist)
+            self.assertIn(expected, youtube_checklist.lower())
+        self.assertIn("GOOGLE_API_KEY", youtube_checklist)
+
+        for expected in (
+            "streamlit community cloud",
+            "app.py",
+            "requirements.txt",
+            "python -m streamlit run app.py",
+            "secrets",
+        ):
+            self.assertIn(expected, deployment_checklist.lower())
+        self.assertIn("GOOGLE_API_KEY", deployment_checklist)
+        self.assertIn("GEMINI_API_KEY", deployment_checklist)
+        self.assertIn("headless = true", streamlit_config)
+        self.assertIn("GOOGLE_API_KEY = \"replace_me\"", secrets_example)
+        self.assertIn(".streamlit/secrets.toml", gitignore)
+        self.assertNotRegex(secrets_example, r"[A-Za-z0-9_-]{30,}")
 
         self.assertTrue(media_cover.exists())
         self.assertGreater(media_cover.stat().st_size, 100_000)
