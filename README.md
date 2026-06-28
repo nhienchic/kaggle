@@ -22,6 +22,7 @@ This project turns the competition brief and repository state into an actionable
 - Exposes MCP-compatible local tools for requirement reading, repository scanning, readiness checklist generation, and security signal checks.
 - Produces a readiness score and submission checklist.
 - Maps current evidence and missing assets.
+- Displays a judge-facing dashboard for rubric readiness, concept evidence, required assets, and scoring next steps.
 - Scans for likely committed secrets, risky environment files, and unsafe read-boundary attempts without exposing full secret values.
 - Preserves deterministic fallback when no Gemini API key is configured.
 - Uses a Gemini model-backed runtime adapter when `GEMINI_API_KEY` or `GOOGLE_API_KEY` is configured.

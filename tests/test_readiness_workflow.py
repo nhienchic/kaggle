@@ -204,6 +204,37 @@ class ReadinessWorkflowTests(unittest.TestCase):
             self.assertIn("security", content.lower())
             self.assertIn("deployability", content.lower())
 
+    def test_report_exposes_judge_facing_scoring_dashboard(self):
+        requirement_text = "Submission Requirements"
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "requirement.md").write_text(requirement_text, encoding="utf-8")
+            (repo_root / "README.md").write_text("setup instructions", encoding="utf-8")
+
+            report = run_readiness_workflow(requirement_text, repo_root)
+
+        dashboard = report.scoring_dashboard()
+
+        rubric_categories = {item.label: item for item in dashboard.rubric_readiness}
+        self.assertEqual(
+            set(rubric_categories),
+            {"Pitch", "Implementation", "Documentation"},
+        )
+        self.assertTrue(all(item.score is not None for item in rubric_categories.values()))
+
+        evidence_concepts = {item.label: item.status for item in dashboard.evidence_map}
+        self.assertEqual(
+            set(evidence_concepts),
+            {"Multi-agent / ADK", "MCP", "Security features", "Deployability"},
+        )
+
+        assets = {item.label: item.status for item in dashboard.submission_assets}
+        self.assertEqual(assets["Public project link"], "present")
+        self.assertEqual(assets["Kaggle Writeup"], "partial")
+        self.assertEqual(assets["Media Gallery"], "missing")
+
+        self.assertIn("Refine and publish", dashboard.prioritized_next_steps[0])
+
     def test_report_includes_security_summary_and_remediation(self):
         requirement_text = "Submission Requirements"
         with tempfile.TemporaryDirectory() as tmp_dir:

@@ -35,6 +35,23 @@ class ReadinessArtifact:
 
 
 @dataclass(frozen=True)
+class DashboardItem:
+    label: str
+    status: Status
+    evidence: tuple[str, ...]
+    next_step: str
+    score: int | None = None
+
+
+@dataclass(frozen=True)
+class ScoringDashboard:
+    rubric_readiness: tuple[DashboardItem, ...]
+    evidence_map: tuple[DashboardItem, ...]
+    submission_assets: tuple[DashboardItem, ...]
+    prioritized_next_steps: tuple[str, ...]
+
+
+@dataclass(frozen=True)
 class ReadinessReport:
     title: str
     model_mode: str
@@ -48,6 +65,7 @@ class ReadinessReport:
     writeup_draft: str
     video_script: str
     model_error: str | None = None
+    repo_files: tuple[str, ...] = ()
 
     def artifacts(self) -> tuple[ReadinessArtifact, ...]:
         return (
@@ -66,6 +84,26 @@ class ReadinessReport:
                 "Full readiness report",
                 "submission-readiness-report.md",
                 self.to_markdown(),
+            ),
+        )
+
+    def scoring_dashboard(self) -> ScoringDashboard:
+        submission_assets = _submission_asset_dashboard_items(self)
+        evidence_map = _evidence_map_dashboard_items(self)
+        rubric_readiness = _rubric_readiness_dashboard_items(
+            self,
+            submission_assets,
+            evidence_map,
+        )
+        return ScoringDashboard(
+            rubric_readiness=rubric_readiness,
+            evidence_map=evidence_map,
+            submission_assets=submission_assets,
+            prioritized_next_steps=_judge_visible_next_steps(
+                self,
+                submission_assets,
+                evidence_map,
+                rubric_readiness,
             ),
         )
 
@@ -244,6 +282,7 @@ def run_readiness_workflow(
         writeup_draft=_writeup_draft(),
         video_script=_video_script(),
         model_error=model_error,
+        repo_files=snapshot.files,
     )
 
 
@@ -303,6 +342,271 @@ def _score(checklist: tuple[ChecklistItem, ...]) -> int:
         return 0
     present = sum(1 for item in checklist if item.status == "present")
     return round((present / len(checklist)) * 100)
+
+
+def _submission_asset_dashboard_items(report: ReadinessReport) -> tuple[DashboardItem, ...]:
+    return (
+        _asset_dashboard_item(
+            report,
+            "Kaggle Writeup",
+            ("Generated Kaggle Writeup draft",) if report.writeup_draft else (),
+            "Refine and publish the generated Kaggle Writeup draft in Kaggle.",
+        ),
+        _asset_dashboard_item(
+            report,
+            "Media Gallery",
+            (),
+            "Create a cover image and media assets for the Kaggle Writeup gallery.",
+        ),
+        _asset_dashboard_item(
+            report,
+            "YouTube video",
+            ("Generated five-minute video script",) if report.video_script else (),
+            "Record and publish the five-minute demo video, then attach it to the Writeup.",
+        ),
+        _asset_dashboard_item(
+            report,
+            "Public project link",
+            ("Generated README draft for publishing setup instructions",)
+            if report.readme_draft
+            else (),
+            "Publish a public repo or demo link with setup instructions.",
+        ),
+        _asset_dashboard_item(
+            report,
+            "README setup instructions",
+            ("Generated README draft",) if report.readme_draft else (),
+            "Move the generated README draft into the public README with setup steps.",
+        ),
+    )
+
+
+def _asset_dashboard_item(
+    report: ReadinessReport,
+    label: str,
+    partial_evidence: tuple[str, ...],
+    partial_next_step: str,
+) -> DashboardItem:
+    checklist_item = _checklist_item(report, label)
+    if checklist_item and checklist_item.status == "present":
+        return DashboardItem(
+            label=label,
+            status="present",
+            evidence=checklist_item.evidence,
+            next_step=f"Keep {label} evidence visible in the final submission.",
+        )
+
+    evidence = partial_evidence
+    status = "partial" if evidence else "missing"
+    return DashboardItem(
+        label=label,
+        status=status,
+        evidence=evidence,
+        next_step=partial_next_step
+        if status == "partial"
+        else _checklist_next_step(checklist_item, partial_next_step),
+    )
+
+
+def _evidence_map_dashboard_items(report: ReadinessReport) -> tuple[DashboardItem, ...]:
+    agent_evidence = _agent_role_evidence(report)
+    workflow_evidence = _repo_matches(report.repo_files, "kaggle_capstone_coach/workflow.py")
+    mcp_evidence = _repo_matches(report.repo_files, "kaggle_capstone_coach/mcp_tools.py")
+    security_evidence = _repo_matches(report.repo_files, "kaggle_capstone_coach/security.py")
+    deployment_evidence = _deployment_evidence(report.repo_files)
+    local_run_evidence = _local_run_evidence(report.repo_files)
+
+    return (
+        DashboardItem(
+            label="Multi-agent / ADK",
+            status="present" if workflow_evidence and agent_evidence else "partial",
+            evidence=workflow_evidence + agent_evidence,
+            next_step="Show the multi-agent architecture in code, writeup, and video.",
+        ),
+        DashboardItem(
+            label="MCP",
+            status="present" if mcp_evidence else "partial",
+            evidence=mcp_evidence
+            or ("Generated submission drafts describe the MCP-compatible tool layer.",),
+            next_step="Surface the MCP tool layer in code, writeup, and video.",
+        ),
+        _security_dashboard_item(report, security_evidence),
+        DashboardItem(
+            label="Deployability",
+            status="present" if deployment_evidence else "partial",
+            evidence=deployment_evidence
+            or local_run_evidence
+            or ("Generated submission drafts include deployability notes.",),
+            next_step=(
+                "Keep deployment evidence visible in the final submission."
+                if deployment_evidence
+                else "Document the public deployment path or demo fallback before submission."
+            ),
+        ),
+    )
+
+
+def _security_dashboard_item(
+    report: ReadinessReport,
+    security_evidence: tuple[str, ...],
+) -> DashboardItem:
+    if report.security_summary.status == "fail":
+        finding_evidence = tuple(
+            f"{finding.category} in {finding.path}"
+            for finding in report.security_summary.findings
+        )
+        return DashboardItem(
+            label="Security features",
+            status="partial" if security_evidence else "missing",
+            evidence=security_evidence + finding_evidence,
+            next_step="Fix security findings before publishing judge-visible code.",
+        )
+
+    return DashboardItem(
+        label="Security features",
+        status="present" if security_evidence else "partial",
+        evidence=security_evidence
+        or (f"Security scan completed with status {report.security_summary.status}.",),
+        next_step="Keep security evidence and clean scan status visible in the submission.",
+    )
+
+
+def _rubric_readiness_dashboard_items(
+    report: ReadinessReport,
+    submission_assets: tuple[DashboardItem, ...],
+    evidence_map: tuple[DashboardItem, ...],
+) -> tuple[DashboardItem, ...]:
+    assets = {item.label: item for item in submission_assets}
+    concepts = {item.label: item for item in evidence_map}
+    return (
+        _rubric_dashboard_item(
+            "Pitch",
+            (
+                _checklist_dashboard_item(report, "Competition brief"),
+                assets["Kaggle Writeup"],
+                assets["YouTube video"],
+                concepts["Multi-agent / ADK"],
+            ),
+        ),
+        _rubric_dashboard_item(
+            "Implementation",
+            (
+                _checklist_dashboard_item(report, "Runnable Streamlit app"),
+                _checklist_dashboard_item(report, "Deterministic readiness workflow"),
+                _checklist_dashboard_item(report, "Workflow tests"),
+                _checklist_dashboard_item(report, "Course concept evidence"),
+                concepts["MCP"],
+                concepts["Security features"],
+            ),
+        ),
+        _rubric_dashboard_item(
+            "Documentation",
+            (
+                assets["README setup instructions"],
+                assets["Public project link"],
+                assets["Kaggle Writeup"],
+                assets["Media Gallery"],
+                concepts["Deployability"],
+            ),
+        ),
+    )
+
+
+def _rubric_dashboard_item(label: str, items: tuple[DashboardItem, ...]) -> DashboardItem:
+    score = _status_score(items)
+    return DashboardItem(
+        label=label,
+        status=_dashboard_status_from_score(score),
+        score=score,
+        evidence=tuple(f"{item.label}: {item.status}" for item in items),
+        next_step=next(
+            (item.next_step for item in items if item.status != "present"),
+            f"Keep {label.lower()} evidence visible in the final submission.",
+        ),
+    )
+
+
+def _checklist_dashboard_item(report: ReadinessReport, label: str) -> DashboardItem:
+    item = _checklist_item(report, label)
+    if item is None:
+        return DashboardItem(
+            label=label,
+            status="missing",
+            evidence=(),
+            next_step=f"Add judge-visible evidence for {label}.",
+        )
+    return DashboardItem(
+        label=label,
+        status=item.status,
+        evidence=item.evidence,
+        next_step=item.next_step,
+    )
+
+
+def _judge_visible_next_steps(
+    report: ReadinessReport,
+    submission_assets: tuple[DashboardItem, ...],
+    evidence_map: tuple[DashboardItem, ...],
+    rubric_readiness: tuple[DashboardItem, ...],
+) -> tuple[str, ...]:
+    ordered_steps = [
+        item.next_step
+        for item in submission_assets + evidence_map + rubric_readiness
+        if item.status != "present"
+    ]
+    ordered_steps.extend(report.next_steps)
+    deduped = tuple(dict.fromkeys(step for step in ordered_steps if step))
+    return deduped[:5] or ("Keep the current judge-facing evidence visible.",)
+
+
+def _status_score(items: tuple[DashboardItem, ...]) -> int:
+    if not items:
+        return 0
+    points = {"present": 1.0, "partial": 0.5, "missing": 0.0}
+    return round(sum(points.get(item.status, 0.0) for item in items) / len(items) * 100)
+
+
+def _dashboard_status_from_score(score: int) -> Status:
+    if score == 100:
+        return "present"
+    if score > 0:
+        return "partial"
+    return "missing"
+
+
+def _checklist_item(report: ReadinessReport, label: str) -> ChecklistItem | None:
+    return next((item for item in report.checklist if item.label == label), None)
+
+
+def _checklist_next_step(item: ChecklistItem | None, fallback: str) -> str:
+    return item.next_step if item else fallback
+
+
+def _agent_role_evidence(report: ReadinessReport) -> tuple[str, ...]:
+    if not report.agent_summaries:
+        return ()
+    names = ", ".join(agent.name for agent in report.agent_summaries)
+    return (f"{len(report.agent_summaries)} agent roles: {names}",)
+
+
+def _repo_matches(files: tuple[str, ...], *names: str) -> tuple[str, ...]:
+    wanted = {name.lower() for name in names}
+    return tuple(file_name for file_name in files if file_name.lower() in wanted)
+
+
+def _deployment_evidence(files: tuple[str, ...]) -> tuple[str, ...]:
+    deployment_names = {"dockerfile", "procfile", "render.yaml"}
+    return tuple(
+        file_name
+        for file_name in files
+        if Path(file_name).name.lower() in deployment_names
+        or "deploy" in file_name.lower()
+    )
+
+
+def _local_run_evidence(files: tuple[str, ...]) -> tuple[str, ...]:
+    local_names = {"README.md", "requirements.txt", "app.py"}
+    return tuple(file_name for file_name in files if Path(file_name).name in local_names)
 
 
 def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:

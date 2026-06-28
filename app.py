@@ -2,10 +2,33 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, Sequence
 
 from kaggle_capstone_coach.gemini_adapter import GeminiModelAdapter
-from kaggle_capstone_coach.workflow import ReadinessReport, run_readiness_workflow
+from kaggle_capstone_coach.workflow import (
+    DashboardItem,
+    ReadinessReport,
+    run_readiness_workflow,
+)
+
+
+def _dashboard_rows(
+    items: Sequence[DashboardItem],
+    label_heading: str,
+    include_score: bool = False,
+) -> list[dict[str, str]]:
+    rows = []
+    for item in items:
+        row = {
+            label_heading: item.label,
+            "Status": item.status,
+            "Evidence": ", ".join(item.evidence) or "No evidence found",
+            "Next step": item.next_step,
+        }
+        if include_score:
+            row["Score"] = f"{item.score}/100"
+        rows.append(row)
+    return rows
 
 
 def build_default_report(
@@ -56,6 +79,33 @@ def main() -> None:
     st.progress(report.readiness_score / 100)
     if report.model_error:
         st.warning(f"Model-backed analysis fell back to deterministic output: {report.model_error}")
+
+    dashboard = report.scoring_dashboard()
+    st.subheader("Judge evidence dashboard")
+    tab_rubric, tab_concepts, tab_assets, tab_steps = st.tabs(
+        ["Rubric", "Concept Evidence", "Submission Assets", "Next Steps"]
+    )
+    with tab_rubric:
+        st.dataframe(
+            _dashboard_rows(dashboard.rubric_readiness, "Category", include_score=True),
+            use_container_width=True,
+            hide_index=True,
+        )
+    with tab_concepts:
+        st.dataframe(
+            _dashboard_rows(dashboard.evidence_map, "Concept"),
+            use_container_width=True,
+            hide_index=True,
+        )
+    with tab_assets:
+        st.dataframe(
+            _dashboard_rows(dashboard.submission_assets, "Asset"),
+            use_container_width=True,
+            hide_index=True,
+        )
+    with tab_steps:
+        for index, step in enumerate(dashboard.prioritized_next_steps, start=1):
+            st.write(f"{index}. {step}")
 
     st.subheader("Agent findings")
     for agent in report.agent_summaries:
