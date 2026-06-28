@@ -49,6 +49,18 @@ class SecurityScannerTests(unittest.TestCase):
         self.assertEqual(finding.category, "risky-env-file")
         self.assertEqual(finding.path, ".env")
 
+    def test_binary_files_are_ignored_by_secret_scan(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_root = Path(tmp_dir)
+            (repo_root / "cover.png").write_bytes(
+                b"\x89PNG\r\n\x1a\n" + b"\x00" * 1024
+            )
+
+            summary = scan_repository_security(repo_root)
+
+        self.assertEqual(summary.status, "pass")
+        self.assertEqual(summary.findings, ())
+
     def test_safe_read_text_rejects_paths_outside_repo_root(self):
         with tempfile.TemporaryDirectory() as repo_dir:
             repo_root = Path(repo_dir)

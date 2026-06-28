@@ -16,7 +16,14 @@ class SubmissionPackageTests(unittest.TestCase):
         video_script = (
             repo_root / "docs" / "submission" / "five-minute-video-script.md"
         ).read_text(encoding="utf-8")
-        media_cover = repo_root / "docs" / "submission" / "media-gallery" / "cover.png"
+        media_dir = repo_root / "docs" / "submission" / "media-gallery"
+        media_cover = media_dir / "cover.png"
+        screenshot_names = (
+            "streamlit-readiness-overview.png",
+            "judge-evidence-dashboard.png",
+            "mcp-tools-output.png",
+            "security-and-downloads.png",
+        )
         media_readme = (
             repo_root / "docs" / "submission" / "media-gallery" / "README.md"
         ).read_text(encoding="utf-8")
@@ -53,6 +60,12 @@ class SubmissionPackageTests(unittest.TestCase):
         self.assertGreater(media_cover.stat().st_size, 100_000)
         self.assertIn("cover.png", media_readme)
         self.assertIn("dashboard", media_readme.lower())
+        for screenshot_name in screenshot_names:
+            screenshot = media_dir / screenshot_name
+            self.assertTrue(screenshot.exists(), screenshot_name)
+            self.assertGreater(screenshot.stat().st_size, 10_000)
+            self.assertEqual(screenshot.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+            self.assertIn(screenshot_name, media_readme)
 
         requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
         report = run_readiness_workflow(requirement_text, repo_root, environment={})

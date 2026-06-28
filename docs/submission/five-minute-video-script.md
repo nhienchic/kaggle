@@ -37,7 +37,7 @@ python -m streamlit run app.py
 
 Show the readiness score, model mode, judge evidence dashboard, agent findings, submission checklist, and downloadable report artifacts. Emphasize how the dashboard maps pitch, implementation, documentation, multi-agent evidence, MCP evidence, security, deployability, and required assets.
 
-Mention that the Kaggle media gallery uses `docs/submission/media-gallery/cover.png` as the cover image, then add screenshots of the score, evidence dashboard, MCP tools, security summary, and downloads.
+Mention that the Kaggle media gallery uses `docs/submission/media-gallery/cover.png` as the cover image, then add `streamlit-readiness-overview.png`, `judge-evidence-dashboard.png`, `mcp-tools-output.png`, and `security-and-downloads.png`.
 
 ## 4:15 - 5:00 Deployability
 

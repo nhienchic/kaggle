@@ -39,7 +39,7 @@ The demo opens the Streamlit app, shows the readiness score, then walks through 
 
 ## Media Gallery
 
-Use `docs/submission/media-gallery/cover.png` as the cover image. Add screenshots of the Streamlit score, judge evidence dashboard, MCP tool output, security summary, and downloadable artifacts to make the submission evidence visible at a glance.
+Use `docs/submission/media-gallery/cover.png` as the cover image. Add `streamlit-readiness-overview.png`, `judge-evidence-dashboard.png`, `mcp-tools-output.png`, and `security-and-downloads.png` to make the submission evidence visible at a glance.
 
 ## Current Status
 

@@ -28,7 +28,10 @@ def scan_repository_security(repo_root: Path | str) -> SecuritySummary:
     findings: list[SecurityFinding] = []
 
     for path in _iter_scannable_files(root):
-        text = safe_read_text(root, path)
+        try:
+            text = safe_read_text(root, path)
+        except UnicodeDecodeError:
+            continue
         relative = path.relative_to(root).as_posix()
         findings.extend(_env_file_findings(relative))
         findings.extend(_secret_findings(relative, text))

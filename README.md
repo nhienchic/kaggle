@@ -161,6 +161,10 @@ Durable draft submission assets live in `docs/submission/`:
 - `kaggle-writeup-draft.md`
 - `five-minute-video-script.md`
 - `media-gallery/cover.png`
+- `media-gallery/streamlit-readiness-overview.png`
+- `media-gallery/judge-evidence-dashboard.png`
+- `media-gallery/mcp-tools-output.png`
+- `media-gallery/security-and-downloads.png`
 - `media-gallery/README.md`
 
 The running app can also generate downloadable README, writeup, video script, and full report artifacts from the current repository state.
