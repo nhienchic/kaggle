@@ -1,6 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from kaggle_capstone_coach.workflow import run_readiness_workflow
 
@@ -68,6 +69,42 @@ class ReadinessWorkflowTests(unittest.TestCase):
         self.assertIsNotNone(adapter.context)
         self.assertIn("Fake Gemini analysis", report.agent_summaries[0].finding)
 
+    def test_configured_gemini_api_key_uses_model_adapter(self):
+        class FakeModelAdapter:
+            def build_agent_summaries(self, context):
+                return context["deterministic_summaries"]
+
+        repo_root = Path(__file__).resolve().parents[1]
+        requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
+
+        report = run_readiness_workflow(
+            requirement_text,
+            repo_root,
+            environment={"GEMINI_API_KEY": "configured"},
+            model_adapter=FakeModelAdapter(),
+        )
+
+        self.assertEqual(report.model_mode, "model-backed")
+
+    def test_model_adapter_error_falls_back_to_deterministic_report(self):
+        class FailingModelAdapter:
+            def build_agent_summaries(self, context):
+                raise RuntimeError("Gemini quota exceeded")
+
+        repo_root = Path(__file__).resolve().parents[1]
+        requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
+
+        report = run_readiness_workflow(
+            requirement_text,
+            repo_root,
+            environment={"GEMINI_API_KEY": "configured"},
+            model_adapter=FailingModelAdapter(),
+        )
+
+        self.assertEqual(report.model_mode, "model-error-fallback")
+        self.assertIn("Gemini quota exceeded", report.model_error)
+        self.assertIn("Model Error", report.to_markdown())
+
     def test_minimal_repo_produces_submission_readiness_report(self):
         repo_root = Path(__file__).resolve().parents[1]
         requirement_text = (repo_root / "requirement.md").read_text(encoding="utf-8")
@@ -102,7 +139,7 @@ class ReadinessWorkflowTests(unittest.TestCase):
 
         repo_root = Path(__file__).resolve().parents[1]
 
-        report = build_default_report(repo_root)
+        report = build_default_report(repo_root, environment={})
 
         checklist = {item.label: item.status for item in report.checklist}
         self.assertEqual(report.model_mode, "deterministic")
@@ -122,6 +159,26 @@ class ReadinessWorkflowTests(unittest.TestCase):
             environment={"GOOGLE_API_KEY": "configured"},
             model_adapter=FakeModelAdapter(),
         )
+
+        self.assertEqual(report.model_mode, "model-backed")
+
+    def test_app_entrypoint_builds_gemini_adapter_from_environment(self):
+        from app import build_default_report
+
+        class FakeGeminiModelAdapter:
+            def __init__(self, api_key):
+                self.api_key = api_key
+
+            def build_agent_summaries(self, context):
+                return context["deterministic_summaries"]
+
+        repo_root = Path(__file__).resolve().parents[1]
+
+        with patch("app.GeminiModelAdapter", FakeGeminiModelAdapter):
+            report = build_default_report(
+                repo_root,
+                environment={"GEMINI_API_KEY": "configured"},
+            )
 
         self.assertEqual(report.model_mode, "model-backed")
 

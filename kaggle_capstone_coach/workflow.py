@@ -47,6 +47,7 @@ class ReadinessReport:
     readme_draft: str
     writeup_draft: str
     video_script: str
+    model_error: str | None = None
 
     def artifacts(self) -> tuple[ReadinessArtifact, ...]:
         return (
@@ -78,9 +79,10 @@ class ReadinessReport:
             "",
             f"{self.readiness_score}/100",
             "",
-            "## Agent Findings",
-            "",
         ]
+        if self.model_error:
+            lines.extend(["## Model Error", "", self.model_error, ""])
+        lines.extend(["## Agent Findings", ""])
 
         for agent in self.agent_summaries:
             lines.extend(
@@ -186,7 +188,8 @@ def run_readiness_workflow(
     )
     next_steps = tuple(item.next_step for item in checklist if item.status != "present")[:5]
 
-    model_mode = "model-backed" if env.get("GOOGLE_API_KEY") and model_adapter else "deterministic"
+    api_key_configured = env.get("GEMINI_API_KEY") or env.get("GOOGLE_API_KEY")
+    model_mode = "model-backed" if api_key_configured and model_adapter else "deterministic"
 
     deterministic_summaries = (
         AgentSummary(
@@ -211,17 +214,22 @@ def run_readiness_workflow(
         ),
     )
     agent_summaries = deterministic_summaries
+    model_error = None
     if model_mode == "model-backed":
-        agent_summaries = _agent_summaries_from_adapter(
-            model_adapter,
-            {
-                "requirement_text": requirement_text,
-                "repo_files": snapshot.files,
-                "checklist": checklist,
-                "security_summary": security_summary,
-                "deterministic_summaries": deterministic_summaries,
-            },
-        )
+        try:
+            agent_summaries = _agent_summaries_from_adapter(
+                model_adapter,
+                {
+                    "requirement_text": requirement_text,
+                    "repo_files": snapshot.files,
+                    "checklist": checklist,
+                    "security_summary": security_summary,
+                    "deterministic_summaries": deterministic_summaries,
+                },
+            )
+        except Exception as exc:
+            model_mode = "model-error-fallback"
+            model_error = str(exc)
 
     return ReadinessReport(
         title="Kaggle Capstone Submission Coach Readiness Report",
@@ -235,6 +243,7 @@ def run_readiness_workflow(
         readme_draft=_readme_draft(checklist),
         writeup_draft=_writeup_draft(),
         video_script=_video_script(),
+        model_error=model_error,
     )
 
 
@@ -310,7 +319,7 @@ def _readme_draft(checklist: tuple[ChecklistItem, ...]) -> str:
         "The workflow uses four specialist agents: Requirement Analyst, Repo Auditor, "
         "Submission Strategist, and Communication Coach. It preserves the same report "
         "contract for deterministic fallback and model-backed execution gated by "
-        "`GOOGLE_API_KEY`.\n\n"
+        "`GEMINI_API_KEY` or `GOOGLE_API_KEY`.\n\n"
         "## MCP Evidence\n\n"
         "The project includes a local MCP-compatible tool layer for reading the "
         "competition brief, scanning repository files, producing checklist data, "
@@ -337,7 +346,8 @@ def _writeup_draft() -> str:
         "This project uses a multi-agent readiness workflow to inspect the brief and "
         "repository, then produce a checklist, evidence map, prioritized next steps, "
         "and submission artifact drafts. The default path is deterministic, while a "
-        "model-backed adapter path is available when `GOOGLE_API_KEY` is configured.\n\n"
+        "Gemini-backed adapter path is available when `GEMINI_API_KEY` or "
+        "`GOOGLE_API_KEY` is configured.\n\n"
         "## Agent Architecture\n\n"
         "Requirement Analyst extracts the submission rules, Repo Auditor maps project "
         "evidence, Submission Strategist prioritizes gaps, and Communication Coach "
@@ -361,7 +371,7 @@ def _video_script() -> str:
         "3. Multi-agent architecture: explain the Requirement Analyst, Repo Auditor, "
         "Submission Strategist, and Communication Coach.\n"
         "4. Runtime mode: show whether the app used deterministic fallback or the "
-        "model-backed adapter gated by `GOOGLE_API_KEY`.\n"
+        "Gemini-backed adapter gated by `GEMINI_API_KEY` or `GOOGLE_API_KEY`.\n"
         "5. MCP evidence: show the local MCP-compatible tools for requirement "
         "reading, repo scanning, checklist data, and security signals.\n"
         "6. Security evidence: show likely-secret scanning, risky env-file warnings, "

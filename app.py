@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Mapping
 
+from kaggle_capstone_coach.gemini_adapter import GeminiModelAdapter
 from kaggle_capstone_coach.workflow import ReadinessReport, run_readiness_workflow
 
 
@@ -12,13 +14,22 @@ def build_default_report(
     model_adapter: object | None = None,
 ) -> ReadinessReport:
     root = Path(repo_root) if repo_root is not None else Path(__file__).parent
+    env = os.environ if environment is None else environment
+    adapter = model_adapter or _build_model_adapter(env)
     requirement_text = (root / "requirement.md").read_text(encoding="utf-8")
     return run_readiness_workflow(
         requirement_text,
         root,
-        environment=environment,
-        model_adapter=model_adapter,
+        environment=env,
+        model_adapter=adapter,
     )
+
+
+def _build_model_adapter(environment: Mapping[str, str]) -> object | None:
+    api_key = environment.get("GEMINI_API_KEY") or environment.get("GOOGLE_API_KEY")
+    if not api_key:
+        return None
+    return GeminiModelAdapter(api_key=api_key)
 
 
 def main() -> None:
@@ -37,12 +48,14 @@ def main() -> None:
     report = build_default_report()
 
     st.title("Kaggle Capstone Submission Coach")
-    st.caption("Deterministic submission readiness report for the current repository.")
+    st.caption("Submission readiness report for the current repository.")
 
     score_col, mode_col = st.columns([1, 2])
     score_col.metric("Readiness score", f"{report.readiness_score}/100")
     mode_col.metric("Model mode", report.model_mode)
     st.progress(report.readiness_score / 100)
+    if report.model_error:
+        st.warning(f"Model-backed analysis fell back to deterministic output: {report.model_error}")
 
     st.subheader("Agent findings")
     for agent in report.agent_summaries:
