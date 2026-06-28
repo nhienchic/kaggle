@@ -37,6 +37,8 @@ python -m streamlit run app.py
 
 Show the readiness score, model mode, judge evidence dashboard, agent findings, submission checklist, and downloadable report artifacts. Emphasize how the dashboard maps pitch, implementation, documentation, multi-agent evidence, MCP evidence, security, deployability, and required assets.
 
+Mention that the Kaggle media gallery uses `docs/submission/media-gallery/cover.png` as the cover image, then add screenshots of the score, evidence dashboard, MCP tools, security summary, and downloads.
+
 ## 4:15 - 5:00 Deployability
 
 Explain the deployment path: publish this repository to GitHub, create a Streamlit Community Cloud app from `app.py`, add `GOOGLE_API_KEY` or `GEMINI_API_KEY` as an optional secret, and keep deterministic fallback available so the demo still runs without a live model call.

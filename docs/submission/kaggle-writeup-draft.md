@@ -37,6 +37,10 @@ The report explicitly shows whether it ran in deterministic, model-backed, or mo
 
 The demo opens the Streamlit app, shows the readiness score, then walks through the judge evidence dashboard. The key moment is the dashboard that groups rubric readiness, course concept evidence, required assets, and next steps in one place. The demo then opens the MCP-compatible tool commands, shows the security summary, and downloads the generated report artifacts.
 
+## Media Gallery
+
+Use `docs/submission/media-gallery/cover.png` as the cover image. Add screenshots of the Streamlit score, judge evidence dashboard, MCP tool output, security summary, and downloadable artifacts to make the submission evidence visible at a glance.
+
 ## Current Status
 
 The repository can serve as the public project link if a live deployment is not available. A fresh user can install dependencies, run tests, launch the app locally, and inspect the same readiness evidence a judge would need.

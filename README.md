@@ -160,6 +160,8 @@ Durable draft submission assets live in `docs/submission/`:
 
 - `kaggle-writeup-draft.md`
 - `five-minute-video-script.md`
+- `media-gallery/cover.png`
+- `media-gallery/README.md`
 
 The running app can also generate downloadable README, writeup, video script, and full report artifacts from the current repository state.
 
@@ -180,7 +182,7 @@ This keeps tests focused on observable behavior: checklist status, report struct
 
 Next evidence to add:
 
-1. Media gallery cover image and demo screenshots.
+1. Demo screenshots listed in `docs/submission/media-gallery/README.md`.
 2. Final YouTube recording from `docs/submission/five-minute-video-script.md`.
 3. Optional hosted Streamlit Community Cloud deployment.
 
