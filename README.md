@@ -9,7 +9,7 @@ The app is analysis-only. It does not edit files, create issues, deploy infrastr
 - Live app: https://kaggle-perdwfgy6aujyfbxsf2mhh.streamlit.app/
 - Demo video: https://youtu.be/GGFt-Wg-aCo
 - Source repository: https://github.com/nhienchic/kaggle
-- Kaggle Writeup: add the final public Writeup URL after submission.
+- Kaggle Writeup: https://kaggle.com/competitions/vibecoding-agents-capstone-project/writeups/new-writeup-1782309198303
 
 ## Problem
 
