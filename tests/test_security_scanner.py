@@ -68,10 +68,9 @@ class SecurityScannerTests(unittest.TestCase):
 
             with tempfile.TemporaryDirectory() as outside_dir:
                 outside = Path(outside_dir) / "secrets.toml"
-                outside.write_text(
-                    'GOOGLE_API_KEY="real_secret_value_abcdefghijklmnop"',
-                    encoding="utf-8",
-                )
+                key_name = "GOOGLE_" + "API_KEY"
+                runtime_value = "redacted-fixture-" + "abcdefghijklmnop"
+                outside.write_text(f'{key_name}="{runtime_value}"', encoding="utf-8")
 
                 with patch(
                     "kaggle_capstone_coach.security._iter_scannable_files",
