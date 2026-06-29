@@ -1,6 +1,7 @@
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from kaggle_capstone_coach.security import scan_repository_security, safe_read_text
 
@@ -57,6 +58,26 @@ class SecurityScannerTests(unittest.TestCase):
             )
 
             summary = scan_repository_security(repo_root)
+
+        self.assertEqual(summary.status, "pass")
+        self.assertEqual(summary.findings, ())
+
+    def test_external_runtime_files_are_ignored_by_secret_scan(self):
+        with tempfile.TemporaryDirectory() as repo_dir:
+            repo_root = Path(repo_dir)
+
+            with tempfile.TemporaryDirectory() as outside_dir:
+                outside = Path(outside_dir) / "secrets.toml"
+                outside.write_text(
+                    'GOOGLE_API_KEY="real_secret_value_abcdefghijklmnop"',
+                    encoding="utf-8",
+                )
+
+                with patch(
+                    "kaggle_capstone_coach.security._iter_scannable_files",
+                    return_value=(outside,),
+                ):
+                    summary = scan_repository_security(repo_root)
 
         self.assertEqual(summary.status, "pass")
         self.assertEqual(summary.findings, ())

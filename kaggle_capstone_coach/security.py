@@ -30,6 +30,10 @@ def scan_repository_security(repo_root: Path | str) -> SecuritySummary:
     for path in _iter_scannable_files(root):
         try:
             text = safe_read_text(root, path)
+        except ValueError:
+            # Runtime mounts such as Streamlit secrets can appear under the repo
+            # while resolving outside it. Do not read or report their contents.
+            continue
         except UnicodeDecodeError:
             continue
         relative = path.relative_to(root).as_posix()
